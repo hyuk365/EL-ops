@@ -2328,42 +2328,131 @@ document.getElementById('importItem').addEventListener('click', () => document.g
 document.getElementById('fileInput').addEventListener('change', async function(e){
   const file = e.target.files[0];
   if(!file) return;
+  menuBackdrop.classList.remove('show'); menuSheet.classList.remove('show');
   const reader = new FileReader();
   reader.onload = async function(ev){
     try{
       const wb = XLSX.read(ev.target.result, {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, {header:1, raw:false});
-      const body = data.slice(1).filter(r => r.length && r[0]);
+      // raw:true → 날짜 칸은 엑셀 날짜 숫자 그대로 읽음 (표시 형식에 영향받지 않음)
+      const data = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+      if(!data.length) throw new Error('빈 파일');
+      const col = vocColumnMap(data[0]);
+      const get = (r, key) => { const v = r[col[key]]; return v === undefined || v === null ? '' : String(v).trim(); };
+      const body = data.slice(1).filter(r => r && r.some(c => String(c).trim() !== ''));
+      let added = 0, fixed = 0, skipped = 0, noDate = 0;
       for(const r of body){
-        await addEvent({
-          site: r[0]||'', elevatorId: r[1]||'', manufacturer: r[2]||'', modelName: r[3]||'',
-          receiver: r[4]||'', reportedAt: parseExcelDatetime(r[5]),
-          reporterName: r[6]||'', reporterContact: r[7]||'',
-          maintenanceType: r[8]||'', stopType: r[9]||'', receiptContent: r[10]||'',
-          technician: r[11]||'', completedAt: parseExcelDatetime(r[12]),
-          actionContent: r[13]||'', causeContent: r[14]||'',
-          category: r[15]||'', subsystemItem: r[16]||'', severity: r[17]||'', faultType: r[19]||'',
-          ...(r[18] === '취소' ? { canceled: true, cancelReason: r[20]||'', canceledAt: '' } : {}),
-          createdAt: Date.now()
-        });
+        const site = get(r,'site'), elevatorId = get(r,'elevatorId');
+        if(!site && !elevatorId){ skipped++; continue; }
+        const reportedAt = parseExcelDatetime(r[col.reportedAt]);
+        const completedAt = parseExcelDatetime(r[col.completedAt]);
+        if(String(r[col.reportedAt]||'').trim() !== '' && !reportedAt) noDate++;
+        const status = get(r,'status');
+        const rec = {
+          site, elevatorId, manufacturer: get(r,'manufacturer'), modelName: get(r,'modelName'),
+          receiver: get(r,'receiver'), reportedAt,
+          reporterName: get(r,'reporterName'), reporterContact: get(r,'reporterContact'),
+          maintenanceType: get(r,'maintenanceType'), stopType: get(r,'stopType'), receiptContent: get(r,'receiptContent'),
+          technician: get(r,'technician'), completedAt,
+          actionContent: get(r,'actionContent'), causeContent: get(r,'causeContent'),
+          category: get(r,'category'), subsystemItem: get(r,'subsystemItem'), severity: get(r,'severity'), faultType: get(r,'faultType')
+        };
+        if(status === '취소') Object.assign(rec, { canceled: true, cancelReason: get(r,'cancelReason'), canceledAt: '' });
+        const sameKey = e2 => e2.site === site && normId(e2.elevatorId) === normId(elevatorId) && (e2.receiptContent||'') === rec.receiptContent;
+        // 이미 같은 건이 있으면: 날짜 없이 올라갔던 건은 날짜를 채우고, 완전히 같은 건은 건너뜀
+        const exist = events.find(e2 => sameKey(e2) && (!e2.reportedAt || e2.reportedAt === reportedAt));
+        if(exist){
+          if(!exist.reportedAt || (!exist.completedAt && completedAt)){ await updateEvent(exist.id, rec); fixed++; }
+          else skipped++;
+        } else {
+          await addEvent(Object.assign(rec, { createdAt: Date.now() }));
+          added++;
+        }
       }
+      let msg = `엑셀 가져오기 완료 · 새로 추가 ${added}건`;
+      if(fixed) msg += ` · 기존 건 날짜·내용 보완 ${fixed}건`;
+      if(skipped) msg += ` · 중복/빈 줄 제외 ${skipped}건`;
+      if(noDate) msg += ` · 날짜를 읽지 못한 행 ${noDate}건(형식 확인 필요)`;
+      showToast(msg);
     }catch(err){
-      alert('파일을 읽는 중 문제가 발생했습니다. xlsx 형식과 헤더 구성을 확인해주세요.');
+      showToast('파일을 읽지 못했습니다. [엑셀로 내보내기]로 받은 파일과 같은 열 구성인지 확인해주세요.');
     }
   };
   reader.readAsArrayBuffer(file);
   e.target.value = '';
-  menuBackdrop.classList.remove('show'); menuSheet.classList.remove('show');
 });
+
+// 헤더 이름으로 열 위치를 찾음 (없으면 내보내기 양식의 기본 순서 사용)
+function vocColumnMap(headerRow){
+  const def = { site:0, elevatorId:1, manufacturer:2, modelName:3, receiver:4, reportedAt:5, reporterName:6, reporterContact:7,
+    maintenanceType:8, stopType:9, receiptContent:10, technician:11, completedAt:12, actionContent:13, causeContent:14,
+    category:15, subsystemItem:16, severity:17, status:18, faultType:19, cancelReason:20 };
+  const names = {
+    site:['건물명','현장명','건물'], elevatorId:['승강기id','승강기','호기','승강기번호'], manufacturer:['제조사'], modelName:['모델명','모델'],
+    receiver:['접수자'], reportedAt:['접수일시','접수일','접수시간','접수일자'], reporterName:['신고자'], reporterContact:['신고자연락처','연락처'],
+    maintenanceType:['보전분류'], stopType:['상태분류'], receiptContent:['접수내용'], technician:['담당기술자','담당자','기술자'],
+    completedAt:['완료일시','완료일','완료시간','완료일자','조치완료일시'], actionContent:['조치내용'], causeContent:['고장원인','원인'],
+    category:['고장계통','계통'], subsystemItem:['세부항목'], severity:['심각도'], status:['상태'], faultType:['고장유형','유형'], cancelReason:['취소사유']
+  };
+  const norm = v => String(v||'').replace(/\s+/g,'').toLowerCase();
+  const hdr = (headerRow||[]).map(norm);
+  const map = Object.assign({}, def);
+  let found = 0;
+  Object.keys(names).forEach(k => {
+    const idx = hdr.findIndex(h => names[k].includes(h));
+    if(idx >= 0){ map[k] = idx; found++; }
+  });
+  return found >= 3 ? map : def;
+}
+
+// 엑셀 날짜 숫자 · 날짜 객체 · 여러 형태의 날짜 글자를 'YYYY-MM-DDTHH:MM'으로 변환
 function parseExcelDatetime(v){
-  if(!v) return '';
-  let str = String(v).trim();
-  const m = str.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
-  if(m) str = `${new Date().getFullYear()}-${pad(+m[1])}-${pad(+m[2])}T${pad(+m[3])}:${m[4]}`;
-  const d = new Date(str.replace(' ', 'T'));
-  if(isNaN(d)) return '';
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if(v === undefined || v === null || v === '') return '';
+  const out = (y,mo,d,h,mi) => {
+    if(!(y > 1900 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && h >= 0 && h < 24 && mi >= 0 && mi < 60)) return '';
+    return `${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}`;
+  };
+  if(typeof v === 'number'){
+    if(window.XLSX && XLSX.SSF && XLSX.SSF.parse_date_code){
+      const t = XLSX.SSF.parse_date_code(v);
+      if(t){
+        let mi = t.M + (t.S >= 30 ? 1 : 0), h = t.H, d = t.d;
+        if(mi === 60){ mi = 0; h += 1; }
+        if(h === 24){ const dt = new Date(t.y, t.m-1, t.d+1); return out(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), 0, mi); }
+        return out(t.y, t.m, d, h, mi);
+      }
+    }
+    const dt = new Date(Math.round((v - 25569) * 86400000));
+    return out(dt.getUTCFullYear(), dt.getUTCMonth()+1, dt.getUTCDate(), dt.getUTCHours(), dt.getUTCMinutes());
+  }
+  if(v instanceof Date && !isNaN(v)) return out(v.getFullYear(), v.getMonth()+1, v.getDate(), v.getHours(), v.getMinutes());
+  let s = String(v).trim();
+  if(!s) return '';
+  if(/^\d+(\.\d+)?$/.test(s) && +s > 20000 && +s < 80000) return parseExcelDatetime(+s);
+  // 시간 부분: 오전/오후, AM/PM, 14:30, 14시 30분
+  let h = 0, mi = 0;
+  const pm = /(오후|pm|p\.m\.)/i.test(s), am = /(오전|am|a\.m\.)/i.test(s);
+  const tm = s.match(/(\d{1,2})\s*[:시]\s*(\d{1,2})?/);
+  let datePart = s;
+  if(tm && (s.includes(':') || s.includes('시'))){
+    h = +tm[1]; mi = tm[2] ? +tm[2] : 0;
+    datePart = s.slice(0, tm.index);
+    if(pm && h < 12) h += 12;
+    if(am && h === 12) h = 0;
+  }
+  datePart = datePart.replace(/(오전|오후|am|pm|a\.m\.|p\.m\.)/ig,'').replace(/[T(（].*$/,'').trim();
+  let m;
+  // 2026-10-01 / 2026.10.01 / 2026/10/1 / 2026년 10월 1일 / 2026. 10. 1.
+  if((m = datePart.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/))) return out(+m[1], +m[2], +m[3], h, mi);
+  // 26-10-01 / 26.10.01
+  if((m = datePart.match(/^(\d{2})\s*[-.]\s*(\d{1,2})\s*[-.]\s*(\d{1,2})/))) return out(2000 + +m[1], +m[2], +m[3], h, mi);
+  // 10/1/2026 / 10/1/26 (미국식 월/일/연)
+  if((m = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/))) return out(m[3].length === 2 ? 2000 + +m[3] : +m[3], +m[1], +m[2], h, mi);
+  // 10/1, 10-1, 10월 1일 (연도 없음 → 올해)
+  if((m = datePart.match(/^(\d{1,2})\s*[-/.월]\s*(\d{1,2})/))) return out(new Date().getFullYear(), +m[1], +m[2], h, mi);
+  // 20261001 / 202610011430
+  if((m = s.match(/^(\d{4})(\d{2})(\d{2})(?:\s*(\d{2})(\d{2}))?$/))) return out(+m[1], +m[2], +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+  return '';
 }
 function parseExcelDate(v){
   if(!v) return '';
