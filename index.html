@@ -357,6 +357,7 @@ function __chartFallback(){
       <div class="stat-card"><span class="num" id="statOpen">0</span><span class="lbl">진행중</span></div>
       <div class="stat-card"><span class="num" id="statMttr">-</span><span class="lbl">평균 처리시간(h)</span></div>
     </div>
+    <div class="notice" id="loadLimitNote" style="display:none;margin:0 16px 10px;background:var(--warn-soft);color:var(--warn);"></div>
     <div class="tabs" id="filterTabs">
       <button class="tab active" data-filter="open">진행중</button>
       <button class="tab" data-filter="all">전체</button>
@@ -365,6 +366,10 @@ function __chartFallback(){
     </div>
     <main>
       <div class="list" id="list"></div>
+      <div id="listMore" style="display:none;text-align:center;margin-top:12px;margin-bottom:72px;">
+        <div id="listMoreInfo" style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;"></div>
+        <button class="btn" id="listMoreBtn" style="width:100%;">10건 더 보기</button>
+      </div>
       <div class="empty" id="emptyMsg" style="display:none;">
         <span class="icon">🛗</span>
         <span id="emptyText">아직 등록된 VOC가 없습니다.<br>＋ 버튼으로 접수를 등록해보세요.</span>
@@ -536,11 +541,13 @@ function __chartFallback(){
       <div class="field" id="cf-category"><label>고장 계통</label>
         <select id="c_category">
           <option value="">선택 안함</option>
-          <option>승강로 계통</option>
+          <option>구동 계통</option>
+          <option>제어 계통</option>
+          <option>카도어 계통</option>
+          <option>승장도어 계통</option>
           <option>카 계통</option>
-          <option>도어 계통</option>
-          <option>기계실/구동 계통</option>
-          <option>승강장 계통</option>
+          <option>승강로/피트 계통</option>
+          <option>버튼/표시기 계통</option>
           <option>기타</option>
         </select>
       </div>
@@ -773,14 +780,41 @@ function __chartFallback(){
 </script>
 <script>
 const HEADERS = ["건물명","승강기ID","제조사","모델명","접수자","접수일시","신고자","신고자연락처","보전분류","상태분류","접수내용","담당기술자","완료일시","조치내용","고장원인","고장계통","세부항목","심각도","상태","고장유형","취소사유"];
-const CAT_COLORS_HEX = { "승강로 계통":"#0f6e56", "카 계통":"#2f8fd1", "도어 계통":"#d1892f", "기계실/구동 계통":"#a5479f", "승강장 계통":"#c23d3d", "기타":"#5c6b68" };
+// 고장 계통 (승강기 작동 구조 기준 7개 + 기타)
+const CATEGORIES = ["구동 계통","제어 계통","카도어 계통","승장도어 계통","카 계통","승강로/피트 계통","버튼/표시기 계통","기타"];
+const CAT_COLORS_HEX = { "구동 계통":"#a5479f", "제어 계통":"#2f8fd1", "카도어 계통":"#d1892f", "승장도어 계통":"#b8741a",
+  "카 계통":"#0f6e56", "승강로/피트 계통":"#5b7f2e", "버튼/표시기 계통":"#c23d3d", "기타":"#5c6b68" };
 const SYSTEM_ITEMS = {
-  "승강로 계통": ["레일", "가이드 슈", "와이어로프", "트래블링 케이블", "조명/통신 배선"],
-  "카 계통": ["카 프레임", "비상정지장치", "위치 감지 센서", "카 상부 정비 스위치"],
-  "도어 계통": ["카 도어", "승강장 도어", "도어 행거", "인터록 장치", "안전센서"],
-  "기계실/구동 계통": ["권상기(Traction Machine)", "브레이크", "모터", "제어반(Inverter/Main Board)", "조속기(Governor)"],
-  "승강장 계통": ["층표시기", "버튼"]
+  "구동 계통": ["브레이크", "모터", "도르래(시브)", "메인로프", "베어링", "감속기"],
+  "제어 계통": ["전자접촉기", "릴레이", "인버터", "메인보드", "전원장치", "접속단자류", "회로보호기", "통신기기"],
+  "카도어 계통": ["도어모터", "도어콘트롤", "카도어링크", "벨트", "행거롤러", "닫힘안전장치", "도어슈", "도어실"],
+  "승장도어 계통": ["도어모터", "도어판넬", "행거(연동)롤러", "벨트", "체인", "인터록", "도어스위치", "도어슈", "도어실", "닫힘안전장치"],
+  "카 계통": ["조명·환풍기", "핸드레일", "바닥재", "인터폰", "과부하 감지", "착상장치", "카위 안전스위치", "전원장치", "PCB", "도르래", "베어링", "가이드슈(롤러)", "카 탑 박스", "리모콘"],
+  "승강로/피트 계통": ["균형추 가이드슈", "균형추", "상/하한리미트", "층 리미트", "완충기", "피트 안전스위치", "조명", "수동조작반", "인터폰", "조속기인장추", "조속기로프"],
+  "버튼/표시기 계통": ["카 버튼", "승장버튼", "카 표시기", "승장표시기", "홀랜턴", "홀차임", "전원장치 PCB", "표판아크릴", "DID"],
+  "기타": ["건축", "전기", "기계"]
 };
+// 예전 계통 이름 → 새 계통 이름 (이미 입력된 VOC를 새 분류로 맞춤)
+function normalizeCategory(cat, item){
+  const c = String(cat||'').replace(/\s+/g,'');
+  const it = String(item||'');
+  if(!c) return '';
+  const direct = CATEGORIES.find(x => x.replace(/\s+/g,'') === c);
+  if(direct) return direct;
+  if(/제어반|인버터|메인보드|보드|전자접촉기|릴레이|통신/i.test(it) && /구동|권상기|기계실|제어/.test(c)) return '제어 계통';
+  if(/조속기/.test(it) && /구동|기계실|권상기/.test(c)) return '승강로/피트 계통';
+  if(/권상기|기계실|구동/.test(c)) return '구동 계통';
+  if(/도어/.test(c)){
+    if(/(승장|승강장)도어/.test(c) && !/카/.test(c)) return '승장도어 계통';
+    if(/승강장|승장|인터록|연동|도어판넬|체인|도어스위치/.test(it)) return '승장도어 계통';
+    return '카도어 계통';
+  }
+  if(/승강로|피트|균형추/.test(c)) return /균형추/.test(c) && /카/.test(c) ? '카 계통' : '승강로/피트 계통';
+  if(/카/.test(c)) return '카 계통';
+  if(/승강장|버튼|표시기/.test(c)) return '버튼/표시기 계통';
+  if(/기타/.test(c)) return '기타';
+  return cat;
+}
 function populateSubsystemOptions(category, selected){
   const sel = document.getElementById('c_subsystem_item');
   const items = SYSTEM_ITEMS[category];
@@ -790,15 +824,18 @@ function populateSubsystemOptions(category, selected){
     return;
   }
   sel.disabled = false;
-  sel.innerHTML = '<option value="">선택 안함</option>' + items.map(it => `<option value="${it}">${it}</option>`).join('');
-  if(selected && items.includes(selected)) sel.value = selected;
+  const list = (selected && !items.includes(selected)) ? items.concat([selected]) : items;   // 예전 세부항목도 유지
+  sel.innerHTML = '<option value="">선택 안함</option>' + list.map(it => `<option value="${escHtml(it)}">${escHtml(it)}${items.includes(it) ? '' : ' (예전 항목)'}</option>`).join('');
+  if(selected) sel.value = selected;
 }
 document.getElementById('c_category').addEventListener('change', function(){
   populateSubsystemOptions(this.value, '');
 });
 let events = [];
 let currentFilter = 'open';
-let homeDetailId = null;   // EL VOC 상세 화면에 열린 VOC id
+let homeDetailId = null;
+const HOME_PAGE_SIZE = 10;
+let homeShowCount = HOME_PAGE_SIZE;   // EL VOC 상세 화면에 열린 VOC id
 let currentPage = 'dash';
 let dbRef = null;
 let charts = {};
@@ -884,6 +921,10 @@ function initNotifyBanner(){
 }
 
 // ---------- DB ----------
+// 한 번에 불러오는 최대 건수 (넘으면 화면에 안내 · 오래된 데이터 정리 메뉴로 줄이기)
+const EVENT_LOAD_LIMIT = 5000;
+const INSP_LOAD_LIMIT = 5000;
+let eventsAtLimit = false, inspAtLimit = false;
 const locallyAddedIds = new Set();
 let isFirstSnapshot = true;
 let previousIds = new Set();
@@ -893,9 +934,10 @@ async function initDb(){
     const db = window.claude && window.claude.use ? await window.claude.use('db') : null;
     if(!db){ setSync('offline'); loadChecklistFallback(); loadLocalFallback(); loadInspLocalFallback(); return; }
     dbRef = db.collection('events');
-    dbRef.orderBy('reportedAt','desc').limit(500).onSnapshot(
+    dbRef.orderBy('reportedAt','desc').limit(EVENT_LOAD_LIMIT).onSnapshot(
       snap => {
-        events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        events = snap.docs.map(d => { const x = { id: d.id, ...d.data() }; if(x.category){ x.category = normalizeCategory(x.category, x.subsystemItem); } return x; });
+        eventsAtLimit = snap.docs.length >= EVENT_LOAD_LIMIT;
         const nowIds = new Set(events.map(e => e.id));
         if(!isFirstSnapshot){
           events.forEach(ev => {
@@ -915,14 +957,15 @@ async function initDb(){
       err => {}
     );
     inspRef = db.collection('inspections');
-    inspRef.orderBy('scheduledDate','desc').limit(1000).onSnapshot(
-      snap => { inspections = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderAll(); },
+    inspRef.orderBy('scheduledDate','desc').limit(INSP_LOAD_LIMIT).onSnapshot(
+      snap => { inspections = snap.docs.map(d => ({ id: d.id, ...d.data() })); inspAtLimit = snap.docs.length >= INSP_LOAD_LIMIT; renderAll(); },
       err => {}
     );
   }catch(e){ setSync('offline'); loadChecklistFallback(); loadLocalFallback(); loadInspLocalFallback(); }
 }
 function loadLocalFallback(){
   try{ events = JSON.parse(localStorage.getItem('elevator_events_fallback')||'[]'); }catch(e){ events = []; }
+  events.forEach(x => { if(x.category) x.category = normalizeCategory(x.category, x.subsystemItem); });
   renderAll();
 }
 function saveLocalFallback(){ try{ localStorage.setItem('elevator_events_fallback', JSON.stringify(events)); }catch(e){} }
@@ -1411,6 +1454,7 @@ document.getElementById('filterTabs').addEventListener('click', e => {
   document.querySelectorAll('#filterTabs .tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   currentFilter = btn.dataset.filter;
+  homeShowCount = HOME_PAGE_SIZE;
   renderHome();
 });
 
@@ -1679,6 +1723,14 @@ function renderHome(){
 
   // 통계
   document.getElementById('statTotal').textContent = active.length;
+  const lim = document.getElementById('loadLimitNote');
+  if(lim){
+    const parts = [];
+    if(eventsAtLimit) parts.push(`VOC가 ${EVENT_LOAD_LIMIT.toLocaleString()}건을 넘어 최근 ${EVENT_LOAD_LIMIT.toLocaleString()}건만 보여주고 있어요.`);
+    if(inspAtLimit) parts.push(`EC점검이 ${INSP_LOAD_LIMIT.toLocaleString()}건을 넘어 최근 건만 보여주고 있어요.`);
+    lim.style.display = parts.length ? 'block' : 'none';
+    lim.textContent = parts.length ? parts.join(' ') + ' 관리자 메뉴의 [오래된 데이터 정리]로 1년 이상 지난 데이터를 정리해 주세요.' : '';
+  }
   document.getElementById('statOpen').textContent = active.filter(e => !isDone(e)).length;
   const durations = active.map(e => computeDowntimeHours(e.reportedAt, e.completedAt)).filter(v => v !== "");
   const avgHours = durations.length ? (durations.reduce((a,b)=>a+b,0) / durations.length).toFixed(1) : null;
@@ -1715,7 +1767,21 @@ function renderHome(){
 
   // 진행중·취소: 카드 / 전체·완료: 간략 목록
   const compact = currentFilter === 'all' || currentFilter === 'done';
-  list.innerHTML = filtered.map(ev => compact ? vocRowHtml(ev) : vocCardHtml(ev)).join('');
+  // 진행중은 모두 표시, 전체·완료·취소는 10건씩 나눠서 표시
+  const paged = currentFilter !== 'open';
+  const shown = paged ? filtered.slice(0, homeShowCount) : filtered;
+  list.innerHTML = shown.map(ev => compact ? vocRowHtml(ev) : vocCardHtml(ev)).join('');
+  const more = document.getElementById('listMore');
+  if(paged && filtered.length > HOME_PAGE_SIZE){
+    more.style.display = 'block';
+    document.getElementById('listMoreInfo').textContent = `${shown.length.toLocaleString()} / ${filtered.length.toLocaleString()}건 표시 중`;
+    const left = filtered.length - shown.length;
+    const btn = document.getElementById('listMoreBtn');
+    btn.style.display = left > 0 ? '' : 'none';
+    btn.textContent = `${Math.min(HOME_PAGE_SIZE, left)}건 더 보기`;
+  } else {
+    more.style.display = 'none';
+  }
 }
 function handleVocAction(e){
   const back = e.target.closest('[data-act="home-back"]');
@@ -1732,6 +1798,7 @@ function handleVocAction(e){
   if(restoreBtn){ restoreEvent(restoreBtn.dataset.id); return; }
 }
 document.getElementById('list').addEventListener('click', handleVocAction);
+document.getElementById('listMoreBtn').addEventListener('click', () => { homeShowCount += HOME_PAGE_SIZE; renderHome(); });
 document.getElementById('homeDetail').addEventListener('click', handleVocAction);
 
 // ---------- VOC 취소 / 복원 ----------
@@ -1862,7 +1929,7 @@ function renderMetrics(){
     datasets: [{ label:'고장 건수', data: counts, borderColor:'#0f6e56', backgroundColor:'rgba(15,110,86,0.12)', fill:true, tension:0.3, pointRadius:3 }]
   }, { scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false } } });
 
-  const cats = ["승강로 계통","카 계통","도어 계통","기계실/구동 계통","승강장 계통","기타"];
+  const cats = CATEGORIES;
   const catCounts = cats.map(c => filtered.filter(e => e.category === c).length);
   const uncategorized = filtered.filter(e => !cats.includes(e.category)).length;
   const nonZero = cats.map((c,i) => ({c, v:catCounts[i]})).filter(x => x.v > 0);
@@ -2355,7 +2422,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
           maintenanceType: get(r,'maintenanceType'), stopType: get(r,'stopType'), receiptContent: get(r,'receiptContent'),
           technician: get(r,'technician'), completedAt,
           actionContent: get(r,'actionContent'), causeContent: get(r,'causeContent'),
-          category: get(r,'category'), subsystemItem: get(r,'subsystemItem'), severity: get(r,'severity'), faultType: get(r,'faultType')
+          category: normalizeCategory(get(r,'category'), get(r,'subsystemItem')), subsystemItem: get(r,'subsystemItem'), severity: get(r,'severity'), faultType: get(r,'faultType')
         };
         if(status === '취소') Object.assign(rec, { canceled: true, cancelReason: get(r,'cancelReason'), canceledAt: '' });
         const sameKey = e2 => e2.site === site && normId(e2.elevatorId) === normId(elevatorId) && (e2.receiptContent||'') === rec.receiptContent;
