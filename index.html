@@ -301,6 +301,84 @@ function __chartFallback(){
   .ec-done-info{font-size:11.5px;color:var(--accent);margin-top:8px;text-align:right;}
   .dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-left:5px;vertical-align:middle;}
   input[type=file]{display:none;}
+  /* ===== 기본(모바일)에서 숨기는 PC 전용 요소 ===== */
+  .nav-brand{display:none;}
+  .dash-sec-gap{margin-top:16px;}
+
+  /* ===== PC 화면 (가로 1024px 이상) : 왼쪽 메뉴 + 넓은 다단 배치 ===== */
+  @media (min-width: 1024px){
+    body{background:var(--paper);}
+    .app{max-width:none;margin:0;padding-left:232px;}
+    header.top{padding:18px 32px 14px;}
+    header.top h1{font-size:22px;}
+    .sync{right:76px;top:26px;}
+    .menu-btn{right:32px;top:18px;}
+    main{padding:0 32px 48px;max-width:1440px;}
+    .page > div > .stats, .page > .stats, #homeListMode > .stats{padding:16px 32px 8px;max-width:1440px;}
+    .notice{margin-left:32px;margin-right:32px;}
+    #loadLimitNote{margin:0 32px 10px !important;}
+    .tabs{padding:4px 32px 14px;}
+    .stat-card{padding:14px 12px;}
+    .stat-card .num{font-size:24px;}
+
+    /* 왼쪽 세로 메뉴 */
+    .bottom-nav{top:0;bottom:0;left:0;right:auto;width:232px;max-width:none;margin:0;flex-direction:column;
+      border-top:none;border-right:1px solid var(--line);padding:18px 12px;gap:4px;}
+    .nav-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;margin-bottom:6px;border-bottom:1px solid var(--line);}
+    .nav-brand .nav-logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;}
+    .nav-brand b{display:block;font-size:14.5px;color:var(--ink);}
+    .nav-brand small{display:block;font-size:11px;color:var(--ink-soft);}
+    .nav-item{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;padding:11px 14px;border-radius:10px;font-size:14px;font-weight:500;color:var(--ink-soft);}
+    .nav-item:hover{background:var(--line-soft);}
+    .nav-item.active{background:var(--accent-soft);color:var(--accent);font-weight:700;}
+    .nav-item .ic{width:26px;display:flex;justify-content:center;}
+
+    /* 접수 등록 버튼: 오른쪽 아래 */
+    .fab{left:auto;right:32px;bottom:28px;transform:none;width:auto;max-width:none;}
+
+    /* 대시보드: 3단 */
+    #dashMain{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start;padding-top:18px;}
+    .dash-sec-gap{margin-top:4px;}
+    .dash-tile .num{font-size:26px;}
+
+    /* EL VOC 목록: 여러 열 카드 */
+    .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;align-items:start;}
+    #listMore{max-width:420px;margin:16px auto 24px !important;}
+    #homeDetail{max-width:900px;}
+    #homeDetail .detail-card{margin-bottom:14px;}
+
+    /* VOC분석: 2단 차트 */
+    #page-metrics main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;}
+    #page-metrics .chart-card{margin-bottom:0;}
+    #page-metrics .span-all{grid-column:1 / -1;}
+    #page-metrics .stats.wide{grid-template-columns:repeat(4,1fr);padding:0;}
+    #page-metrics .section-title{margin:10px 2px 0;}
+    .chart-box{height:260px;}
+    .chart-box.short{height:200px;}
+
+    /* EC점검 */
+    .ec-toolbar{grid-template-columns:repeat(4,1fr);}
+    #ecGroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;align-items:start;}
+    #ecGroups .ec-group{margin-bottom:0;}
+    #ecAddScheduleBtn{max-width:420px;display:block;margin:16px auto 0 !important;}
+    #ecList{max-width:1200px;}
+    .ec-unit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;}
+    .ec-unit > .ec-unit-head, .ec-unit > .ec-foot, .ec-unit > .ec-actions{grid-column:1 / -1;}
+    .ec-unit > .ec-card{margin-bottom:0;}
+    .ec-actions{justify-content:flex-end;}
+    .ec-actions .btn{flex:none;min-width:140px;}
+
+    /* 입력 시트: 화면 가운데 창 */
+    .sheet{left:50%;right:auto;top:50%;bottom:auto;width:600px;max-width:calc(100vw - 48px);max-height:86vh;margin:0;
+      border-radius:16px;padding:8px 26px 24px;transform:translate(-50%,-46%);opacity:0;visibility:hidden;pointer-events:none;
+      transition:transform .2s ease, opacity .2s ease, visibility 0s linear .2s;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+    .sheet.show{transform:translate(-50%,-50%);opacity:1;visibility:visible;pointer-events:auto;transition:transform .2s ease, opacity .2s ease;}
+    .sheet.menu-sheet{width:380px;}
+    .sheet-handle{visibility:hidden;margin:4px auto 8px;}
+    .toast-wrap{left:232px;}
+  }
+  @media (min-width: 1024px) and (prefers-reduced-motion: reduce){ .sheet, .sheet.show{transition:none;} }
+
   #loginOverlay{position:fixed;inset:0;z-index:100;background:var(--paper);display:none;align-items:center;justify-content:center;padding:24px 16px;}
   #loginOverlay.show{display:flex;}
   .login-box{width:100%;max-width:360px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px 20px;}
@@ -382,7 +460,7 @@ function __chartFallback(){
   <!-- ===== VOC 관리지표 ===== -->
   <section class="page" id="page-metrics">
     <main style="padding-top:14px;">
-      <div class="stats wide">
+      <div class="stats wide span-all">
         <div class="stat-card"><span class="num" id="mTotal">0</span><span class="lbl">전체 VOC</span></div>
         <div class="stat-card"><span class="num" id="mThisMonth">0</span><span class="lbl">이번달 등록</span></div>
         <div class="stat-card"><span class="num" id="mOpen">0</span><span class="lbl">진행중</span></div>
@@ -399,7 +477,7 @@ function __chartFallback(){
         <div id="causeList"></div>
       </div>
 
-      <div class="chart-card" style="padding:12px 14px;">
+      <div class="chart-card span-all" style="padding:12px 14px;">
         <h3>기간 · 제조사 필터</h3>
         <div class="row2" style="margin-bottom:10px;">
           <div class="field" style="margin-bottom:0;"><label>시작일</label><input type="date" id="metricsStart"></div>
@@ -433,7 +511,7 @@ function __chartFallback(){
         <div id="mfrRank"></div>
       </div>
 
-      <div class="section-title">원인 분석</div>
+      <div class="section-title span-all">원인 분석</div>
 
       <div class="chart-card">
         <h3>고장 세부 항목 빈도 (파레토)</h3>
@@ -476,6 +554,7 @@ function __chartFallback(){
   <div class="fab" style="display:none;"><button id="addBtn">＋ VOC 접수 등록</button></div>
 
   <div class="bottom-nav">
+    <div class="nav-brand"><span class="nav-logo">🛗</span><span><b>E/V 운영관리</b><small>승강기 VOC · EC점검</small></span></div>
     <button class="nav-item active" data-page="dash"><span class="ic ic-svg"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/><path d="M5.5 13l3.5-3.5 2.5 2 3-4 4 3" /><circle cx="18.5" cy="10.5" r="0.9" fill="currentColor" stroke="none"/></svg></span>대시보드</button>
     <button class="nav-item" data-page="home"><span class="ic">📞</span>EL VOC</button>
     <button class="nav-item" data-page="metrics"><span class="ic">📊</span>VOC분석</button>
@@ -1568,7 +1647,7 @@ function renderDash(){
   todayInsp.forEach(i => { const k = i.company || '업체 미지정'; byCo[k] = byCo[k] || [0,0]; byCo[k][1]++; if(i.completed) byCo[k][0]++; });
   const todayPending = todayInsp.filter(i => !i.completed).slice(0,5);
 
-  el.innerHTML = `
+  el.innerHTML = `<div class="dash-col">
     <div class="dash-sec"><span>VOC 현황</span><button class="more" data-go="home">EL VOC ›</button></div>
     <div class="dash-tiles">
       <div class="dash-tile"><span class="num">${open.length}</span><span class="lbl">진행중</span><div class="sub">${stopN ? `정지 <b>${stopN}</b>대 포함` : '정지 호기 없음'}</div></div>
@@ -1584,13 +1663,14 @@ function renderDash(){
           ${e.stopType === '정지' ? '<span class="badge stop">⛔ 정지</span>' : `<span class="badge open">${escHtml(e.stopType||'진행중')}</span>`}
         </button>`).join('') : '<div class="dash-empty">처리 대기 중인 VOC가 없습니다.</div>'}
     </div>
-
-    <div class="dash-sec" style="margin-top:16px;"><span>이번달 고장 분석</span><button class="more" data-go="metrics">VOC분석 ›</button></div>
+    </div><div class="dash-col">
+    <div class="dash-sec dash-sec-gap"><span>이번달 고장 분석</span><button class="more" data-go="metrics">VOC분석 ›</button></div>
     <div class="dash-card"><h4>고장 계통 Top 5<span class="cnt">${monthStr}</span></h4>${hbarsHtml(catPairs, '건')}</div>
     <div class="dash-card"><h4>고장 유형 Top 5<span class="cnt">${monthStr}</span></h4>${hbarsHtml(ftPairs, '건')}</div>
     <div class="dash-card"><h4>반복 고장 호기<span class="cnt">최근 90일 · 2회 이상</span></h4>${recurring.length ? hbarsHtml(recurring, '회') : '<div class="dash-empty">반복 고장 호기가 없습니다.</div>'}</div>
 
-    <div class="dash-sec" style="margin-top:16px;"><span>EC점검 현황</span><button class="more" data-go="ec">EC점검 ›</button></div>
+    </div><div class="dash-col">
+    <div class="dash-sec dash-sec-gap"><span>EC점검 현황</span><button class="more" data-go="ec">EC점검 ›</button></div>
     <div class="dash-card">
       <div class="prog-line"><span>오늘 점검</span><span><b>${todayDone}</b> / ${todayInsp.length}대 · ${pct(todayDone, todayInsp.length)}%</span></div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct(todayDone, todayInsp.length)}%;"></div></div>
@@ -1603,7 +1683,7 @@ function renderDash(){
     ${todayPending.length ? `<div class="dash-card"><h4>오늘 미완료 호기<span class="cnt">${todayInsp.length - todayDone}대</span></h4>
       ${todayPending.map(i => `<button class="dash-item" data-insp="${i.id}"><div class="main"><div class="name">${escHtml(i.site)} · ${escHtml(i.elevatorId)}</div><div class="meta">${escHtml(i.company||'업체 미지정')}</div></div><span class="badge open">예정</span></button>`).join('')}
     </div>` : ''}
-  `;
+  </div>`;
 }
 document.getElementById('dashMain').addEventListener('click', e => {
   const go = e.target.closest('[data-go]');
